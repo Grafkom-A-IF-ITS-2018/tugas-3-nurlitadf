@@ -898,6 +898,45 @@ WebGL.prototype.renderThree = function(sw, sh, ew, eh) {
     }
 }
 
+var cameraAngle = 0;
+
+WebGL.prototype.renderFour = function(sw, sh, ew, eh) {
+    GL.scissor(sw, sh, ew, eh)
+    GL.viewport(sw, sh, ew, eh);
+    GL.clear(GL.COLOR_BUFFER_BIT, GL.DEPTH_BUFFER_BIT);
+    mat4.perspective(this.pvMatrix[4], glMatrix.toRadian(45), GL.VIEWPORT_WIDTH/GL.VIEWPORT_HEIGHT, 0.1, 1000.0)
+
+    mat4.identity(this.mvMatrix[4]);
+    let cameraMatrix = mat4.create(), viewMatrix = mat4.create();
+    mat4.rotateY(cameraMatrix, cameraMatrix, cameraAngle);
+    mat4.translate(cameraMatrix, cameraMatrix, [0, 0, 50]);
+    
+    mat4.invert(viewMatrix,cameraMatrix);
+    mat4.multiply(this.pvMatrix[4], this.pvMatrix[4],  viewMatrix);
+
+    for(let i = 0; i < this.object3dBuffer.length; i++) {
+        this.mvPushMatrix(4);
+        let o = this.object3dBuffer[i];
+
+        if(o.obj3d.type === 'geometry') {
+            mat4.multiply(this.mvMatrix[4], this.mvMatrix[4], o.obj3d.matrixWorld);
+            this.geometryToBuffer(o);
+            let temp = [];
+            for(let i = 0; i < o.obj3d.vertices_.length; i++){
+                temp.push(multiply(this.mvMatrix[4], o.obj3d.vertices_[i]));
+            }
+            o.obj3d.position = JSON.parse(JSON.stringify(temp));
+
+            this.setMatrixUniform(4);
+            GL.drawElements(GL.TRIANGLES, o.indices.numItems, GL.UNSIGNED_SHORT, 0);
+        } else {
+            this.lightningToBuffer(o);
+        }
+        this.mvPopMatrix(4);
+    }
+    cameraAngle += 0.02;
+}
+
 WebGL.prototype.render = function() {
     GL.enable(GL.SCISSOR_TEST);
 
