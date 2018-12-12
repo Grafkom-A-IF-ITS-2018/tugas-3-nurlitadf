@@ -856,8 +856,47 @@ WebGL.prototype.renderTwo = function(sw, sh, ew, eh) {
     document.dispatchEvent(eventAfterRender);
 }
 
+var revTranslate = [0.0, 0.0, 0.0];
+var revRotate = 0;
 
+WebGL.prototype.renderThree = function(sw, sh, ew, eh) {
+    GL.scissor(sw, sh, ew, eh)
+    GL.viewport(sw, sh, ew, eh);
+    GL.clear(GL.COLOR_BUFFER_BIT, GL.DEPTH_BUFFER_BIT);
 
+    mat4.perspective(this.pvMatrix[3], glMatrix.toRadian(45), GL.VIEWPORT_WIDTH/GL.VIEWPORT_HEIGHT, 0.1, 1000.0)
+
+    mat4.identity(this.mvMatrix[3]);
+
+    for(let i = 0; i < this.object3dBuffer.length; i++) {
+        this.mvPushMatrix(3);
+        let o = this.object3dBuffer[i];
+        if(i == 1) continue;
+        if(o.obj3d.type === 'geometry') {
+            revTranslate[0] += (-window.dir[0])*0.1;
+            revTranslate[1] += (-window.dir[1])*0.1;
+            revTranslate[2] += (-window.dir[2])*0.1;
+            revRotate = revRotate + (-window.rotater*0.5);
+            let tempMat = Object.assign([], o.obj3d.matrixWorld);
+            mat4.rotate(tempMat, tempMat, glMatrix.toRadian(revRotate), [0, 0, -1]);
+            mat4.translate(tempMat, tempMat, [-revTranslate[0], revTranslate[2], -revTranslate[1]])
+            mat4.multiply(this.mvMatrix[3], this.mvMatrix[3], tempMat );
+            this.geometryToBuffer(o);
+            let temp = [];
+            for(let i = 0; i < o.obj3d.vertices_.length; i++){
+                temp.push(multiply(this.mvMatrix[3], o.obj3d.vertices_[i]));
+            }
+            o.obj3d.position = JSON.parse(JSON.stringify(temp));
+
+            this.setMatrixUniform(3);
+            GL.drawElements(GL.TRIANGLES, o.indices.numItems, GL.UNSIGNED_SHORT, 0);
+        } 
+        else {
+            this.lightningToBuffer(o);
+        }
+        this.mvPopMatrix(3);
+    }
+}
 
 WebGL.prototype.render = function() {
     GL.enable(GL.SCISSOR_TEST);
